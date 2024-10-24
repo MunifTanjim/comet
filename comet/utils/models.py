@@ -1,8 +1,8 @@
 import os
 import random
 import string
-
 from typing import List, Optional
+
 from databases import Database
 from pydantic import BaseModel, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -33,6 +33,8 @@ class AppSettings(BaseSettings):
     ZILEAN_TAKE_FIRST: Optional[int] = 500
     SCRAPE_TORRENTIO: Optional[bool] = False
     CUSTOM_HEADER_HTML: Optional[str] = None
+    PROXY_URL_TEMPLATE: Optional[str] = None
+    PROXY_BASIC_AUTH_CREDENTIAL: Optional[str] = None
     PROXY_DEBRID_STREAM: Optional[bool] = False
     PROXY_DEBRID_STREAM_PASSWORD: Optional[str] = None
     PROXY_DEBRID_STREAM_MAX_CONNECTIONS: Optional[int] = 100

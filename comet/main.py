@@ -146,6 +146,10 @@ def start_log():
     logger.log("COMET", f"Torrentio Scraper: {bool(settings.SCRAPE_TORRENTIO)}")
     logger.log(
         "COMET",
+        f"Proxy URL Template: {settings.PROXY_URL_TEMPLATE}",
+    )
+    logger.log(
+        "COMET",
         f"Debrid Stream Proxy: {bool(settings.PROXY_DEBRID_STREAM)} - Password: {settings.PROXY_DEBRID_STREAM_PASSWORD} - Max Connections: {settings.PROXY_DEBRID_STREAM_MAX_CONNECTIONS} - Default Debrid Service: {settings.PROXY_DEBRID_STREAM_DEBRID_DEFAULT_SERVICE} - Default Debrid API Key: {settings.PROXY_DEBRID_STREAM_DEBRID_DEFAULT_APIKEY}",
     )
     logger.log("COMET", f"Title Match Check: {bool(settings.TITLE_MATCH_CHECK)}")

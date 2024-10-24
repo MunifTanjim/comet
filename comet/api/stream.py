@@ -2,37 +2,27 @@ import asyncio
 import hashlib
 import json
 import time
+import uuid
+
 import aiohttp
 import httpx
-import uuid
 import orjson
-
 from fastapi import APIRouter, Request
-from fastapi.responses import (
-    RedirectResponse,
-    StreamingResponse,
-    FileResponse,
-    Response,
-)
-from starlette.background import BackgroundTask
+from fastapi.responses import (FileResponse, RedirectResponse, Response,
+                               StreamingResponse)
 from RTN import Torrent, sort_torrents
+from starlette.background import BackgroundTask
 
 from comet.debrid.manager import getDebrid
-from comet.utils.general import (
-    config_check,
-    get_debrid_extension,
-    get_indexer_manager,
-    get_zilean,
-    get_torrentio,
-    filter,
-    get_torrent_hash,
-    translate,
-    get_balanced_hashes,
-    format_title,
-    get_client_ip,
-)
+from comet.utils.general import (config_check, filter, format_title,
+                                 get_balanced_hashes, get_client_ip,
+                                 get_debrid_extension, get_indexer_manager,
+                                 get_torrent_hash, get_torrentio, get_zilean,
+                                 translate)
 from comet.utils.logger import logger
 from comet.utils.models import database, rtn, settings
+from comet.utils.proxy import get_proxy_url, has_proxy_url_template
+from comet.utils.request import RequestClient
 
 streams = APIRouter()
 
@@ -202,9 +192,9 @@ async def stream(request: Request, b64config: str, type: str, id: str):
             == config["debridStreamProxyPassword"]
             and config["debridApiKey"] == ""
         ):
-            config["debridService"] = (
-                settings.PROXY_DEBRID_STREAM_DEBRID_DEFAULT_SERVICE
-            )
+            config[
+                "debridService"
+            ] = settings.PROXY_DEBRID_STREAM_DEBRID_DEFAULT_SERVICE
             config["debridApiKey"] = settings.PROXY_DEBRID_STREAM_DEBRID_DEFAULT_APIKEY
 
         debrid = getDebrid(session, config, get_client_ip(request))
@@ -499,7 +489,17 @@ async def playback(request: Request, b64config: str, hash: str, index: str):
         ip = get_client_ip(request)
 
         if not download_link:
-            debrid = getDebrid(session, config, ip if (not settings.PROXY_DEBRID_STREAM or settings.PROXY_DEBRID_STREAM_PASSWORD != config["debridStreamProxyPassword"]) else "")
+            debrid = getDebrid(
+                session,
+                config,
+                ip
+                if (
+                    not settings.PROXY_DEBRID_STREAM
+                    or settings.PROXY_DEBRID_STREAM_PASSWORD
+                    != config["debridStreamProxyPassword"]
+                )
+                else "",
+            )
             download_link = await debrid.generate_download_link(hash, index)
             if not download_link:
                 return FileResponse("comet/assets/uncached.mp4")
@@ -521,6 +521,13 @@ async def playback(request: Request, b64config: str, hash: str, index: str):
             and settings.PROXY_DEBRID_STREAM_PASSWORD
             == config["debridStreamProxyPassword"]
         ):
+            if has_proxy_url_template():
+                return RedirectResponse(
+                    get_proxy_url(download_link, include_credential=True),
+                    status_code=302,
+                    headers={"Range": request.headers.get("range", "bytes=0-")},
+                )
+
             active_ip_connections = await database.fetch_all(
                 "SELECT ip, COUNT(*) as connections FROM active_connections GROUP BY ip"
             )
@@ -560,16 +567,20 @@ async def playback(request: Request, b64config: str, hash: str, index: str):
 
             range_header = request.headers.get("range", "bytes=0-")
 
-            response = await session.head(
-                download_link, headers={"Range": range_header}
+            response = await RequestClient.static_request(
+                session, "head", download_link, headers={"Range": range_header}
             )
             if response.status == 503 and config["debridService"] == "alldebrid":
                 proxy = (
                     settings.DEBRID_PROXY_URL
                 )  # proxy is not needed to proxy realdebrid stream
 
-                response = await session.head(
-                    download_link, headers={"Range": range_header}, proxy=proxy
+                response = await RequestClient.static_request(
+                    session,
+                    "head",
+                    download_link,
+                    headers={"Range": range_header},
+                    proxy=proxy,
                 )
 
             if response.status == 206:
